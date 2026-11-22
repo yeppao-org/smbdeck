@@ -1,0 +1,83 @@
+{{define "content"}}{{$d := .Data}}
+<section class="scene hero">
+  <div class="hero__text">
+    <p class="eyebrow">{{.L.T "overview.eyebrow"}}</p>
+    <h1 class="title">{{.L.T "overview.heading"}}</h1>
+    <p class="lead">{{.L.T "overview.lead"}}</p>
+    <dl class="stats">
+      <div class="stat"><dt>{{.L.T "overview.stat_shares"}}</dt><dd>{{len $d.Shares}}</dd></div>
+      <div class="stat"><dt>{{.L.T "overview.stat_active"}}</dt><dd>{{$d.Active}}</dd></div>
+      <div class="stat"><dt>{{.L.T "overview.stat_admins"}}</dt><dd>{{$d.Admins}}</dd></div>
+    </dl>
+  </div>
+  {{template "terminal" (dict "L" .L "S" $d.Status)}}
+</section>
+
+{{if $d.Status.Issues}}
+<section class="section">
+  <div class="notice notice--warn" role="alert">
+    <p class="eyebrow">{{.L.T "issues.eyebrow"}}</p>
+    <h2 class="notice__title">{{.L.T "issues.heading"}}</h2>
+    <ul class="issues">{{range $d.Status.Issues}}<li>{{template "issue" (dict "L" $.L "I" .)}}</li>{{end}}</ul>
+  </div>
+</section>
+{{end}}
+
+{{if $d.Hosts}}
+<section class="section">
+  <header class="section__head">
+    <div>
+      <p class="eyebrow">{{.L.T "connect.eyebrow"}}</p>
+      <h2 class="section__title">{{.L.T "connect.heading"}}</h2>
+    </div>
+  </header>
+  <div class="connect">
+    {{range $d.Hosts}}
+    <div class="connect__row">
+      <p class="connect__os">{{$.L.T "connect.mac_linux"}}</p>
+      <div class="copyline"><code class="mono">{{smbURL . ""}}</code>{{template "copy" $.L}}</div>
+      <p class="connect__os">{{$.L.T "connect.windows"}}</p>
+      <div class="copyline"><code class="mono">{{uncPath . ""}}</code>{{template "copy" $.L}}</div>
+    </div>
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+<section class="section">
+  <header class="section__head">
+    <div>
+      <p class="eyebrow">{{.L.T "shares.eyebrow"}}</p>
+      <h2 class="section__title">{{.L.T "shares.title"}}</h2>
+    </div>
+    <a class="btn btn--ghost" href="/shares/new">{{template "plus"}}{{.L.T "shares.new"}}</a>
+  </header>
+  {{template "sharecards" (dict "L" .L "Shares" $d.Shares "Hosts" $d.Hosts)}}
+</section>
+
+<section class="section">
+  <header class="section__head">
+    <div>
+      <p class="eyebrow">{{.L.T "users.eyebrow"}}</p>
+      <h2 class="section__title">{{.L.T "users.title"}}</h2>
+    </div>
+    <a class="btn btn--ghost" href="/users">{{.L.T "users.manage"}}</a>
+  </header>
+  <ul class="rows stagger">
+    {{range $d.Users}}
+    <li class="row{{if .Disabled}} row--off{{end}}">
+      <span class="avatar" aria-hidden="true">{{initial .Name}}</span>
+      <span class="row__main">
+        <span class="row__title">{{.Name}}</span>
+        <span class="row__meta">{{if .Shares}}{{range $i, $s := .Shares}}{{if $i}}, {{end}}{{$s.Share}}{{end}}{{else}}{{$.L.T "users.no_share"}}{{end}}</span>
+      </span>
+      <span class="row__tags">
+        {{if .Admin}}<span class="pill pill--accent">{{$.L.T "users.admin"}}</span>{{end}}
+        {{if .Disabled}}<span class="pill pill--muted">{{$.L.T "users.disabled_tag"}}</span>{{end}}
+        {{if .Self}}<span class="pill">{{$.L.T "users.you"}}</span>{{end}}
+      </span>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}

@@ -1,0 +1,55 @@
+smbdeck {{ .Chart.AppVersion }} is installed as {{ include "smbdeck.fullname" . }} in namespace {{ .Release.Namespace }}.
+
+1. Reach the console.
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}/
+{{- end }}
+{{- else if eq .Values.service.type "LoadBalancer" }}
+   kubectl -n {{ .Release.Namespace }} get svc {{ include "smbdeck.fullname" . }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+   then open http://<that address>:{{ .Values.service.port }}/
+{{- else }}
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "smbdeck.fullname" . }} 8080:{{ .Values.service.port }}
+   (port-forward reaches the console from 127.0.0.1: it is refused if
+   web.allowedNetworks does not include 127.0.0.0/8.)
+   then open http://localhost:8080/
+{{- end }}
+
+2. Sign in.
+{{- if .Values.seed.enabled }}
+   With an account from the seed (passwords from Secret {{ .Values.seed.passwordsSecret }}).
+   The seed applies once, when the state volume is empty.
+{{- else }}
+   No seed: the console asks for the first administrator, once. It needs the
+   setup code printed in the web container's logs:
+
+   kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "smbdeck.fullname" . }} -c web | grep setupCode
+{{- end }}
+
+   Reaching it by a host name (not an address)? Add the name to
+   web.allowedHosts, or the console answers 421.
+
+3. Security reminders.
+   - The console answers only {{ if .Values.web.allowedNetworks }}{{ join ", " .Values.web.allowedNetworks }}{{ else }}private networks (RFC 1918, loopback, 100.64.0.0/10, IPv6 ULA){{ end }}.
+{{- if .Values.ingress.enabled }}
+   - Behind the ingress, set web.trustedProxies to the controller's addresses,
+     or every client looks like the controller.{{ if not .Values.web.trustedProxies }} It is empty now.{{ end }}
+{{- end }}
+   - The state volume holds NT hashes, equivalent to passwords for SMB.
+{{- if not .Values.persistence.enabled }}
+
+WARNING: persistence is disabled. Accounts and shares live in an emptyDir and
+are lost whenever the pod is recreated.
+{{- end }}
+{{- if not .Values.roots }}
+
+NOTE: no share root is declared (roots: []). The agent runs, but there is
+nothing to share until you add one.
+{{- end }}
+{{- if .Values.smb.service.enabled }}
+
+SMB is published by Service {{ include "smbdeck.fullname" . }}-smb (type {{ .Values.smb.service.type }}, port {{ .Values.smb.service.port }}).
+{{- else }}
+
+SMB has no Service yet (smb.service.enabled=false): clients cannot connect.
+{{- end }}

@@ -1,0 +1,127 @@
+{{define "content"}}{{$f := .Data}}
+<section class="pagehead">
+  <div>
+    <p class="eyebrow">{{if $f.Editing}}{{.L.T "shares.edit_eyebrow"}}{{else}}{{.L.T "shares.new_eyebrow"}}{{end}}</p>
+    <h1 class="title">{{if $f.Editing}}{{$f.Original}}{{else}}{{.L.T "shares.new_title"}}{{end}}</h1>
+    <p class="lead">{{.L.T "shares.form_lead"}}</p>
+  </div>
+  <a class="btn btn--ghost" href="/shares">{{.L.T "shares.back"}}</a>
+</section>
+
+{{if $f.Issues}}<div class="notice notice--warn" role="alert">
+  <p class="eyebrow">{{.L.T "issues.eyebrow"}}</p>
+  <ul class="issues">{{range $f.Issues}}<li>{{$.L.T (errKey .)}}</li>{{end}}</ul>
+</div>{{end}}
+{{if not $f.Reported}}<div class="notice notice--warn" role="status"><p>{{.L.T "shares.no_tree"}}</p></div>{{end}}
+{{template "errors" .}}
+
+<form method="post" action="{{if $f.Editing}}/shares/{{$f.Original}}{{else}}/shares{{end}}" class="sheet" data-share-form>
+  {{template "hidden" .}}
+  {{/* Enter in a field submits the first submit button: make it Save, not a folder of the picker. */}}
+  <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true">{{if $f.Editing}}{{.L.T "shares.save"}}{{else}}{{.L.T "shares.create"}}{{end}}</button>
+
+  <fieldset class="sheet__section">
+    <legend class="sheet__legend"><span class="sheet__num mono">01</span>{{.L.T "shares.section_name"}}</legend>
+    <div class="field">
+      <label class="field__label" for="share-name">{{.L.T "shares.name"}}</label>
+      <input class="input input--large" id="share-name" name="name" value="{{$f.Name}}" required maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="share-name-hint">
+      <p class="hint" id="share-name-hint">{{.L.T "shares.name_hint"}}</p>
+    </div>
+  </fieldset>
+
+  <fieldset class="sheet__section">
+    <legend class="sheet__legend"><span class="sheet__num mono">02</span>{{.L.T "shares.section_folder"}}</legend>
+    {{if $f.Roots}}
+    <fieldset class="field field--plain">
+      <legend class="field__label">{{.L.T "shares.root"}}</legend>
+      <div class="segmented">
+        {{range $f.Roots}}<label class="segmented__item"><input type="radio" name="root" value="{{.Name}}" data-root-choice{{if eq .Name $f.Root}} checked{{end}}{{if not .Available}} disabled{{end}}><span class="mono">{{.Name}}</span></label>{{end}}
+      </div>
+    </fieldset>
+    {{end}}
+    <div class="field">
+      <label class="field__label" for="share-path">{{.L.T "shares.path"}}</label>
+      <div class="pathbox">
+        <span class="pathbox__prefix mono" data-root-prefix aria-hidden="true">{{$f.Root}}/</span>
+        <input class="input mono" id="share-path" name="path" value="{{$f.Path}}" maxlength="1024" autocomplete="off" spellcheck="false" aria-describedby="share-path-hint" data-path-input>
+      </div>
+      <p class="hint" id="share-path-hint">{{.L.T "shares.path_hint"}}</p>
+    </div>
+    {{if $f.Roots}}
+    <div class="picker" data-picker>
+      <p class="picker__title">{{.L.T "shares.pick"}}</p>
+      {{range $f.Roots}}{{$root := .Name}}
+      <ul class="picker__list" data-picker-root="{{.Name}}"{{if ne .Name $f.Root}} data-inactive{{end}} aria-label="{{$.L.T "shares.pick_in" "root" .Name}}">
+        <li><button type="submit" name="pick" value="{{$root}}/" formnovalidate class="folder folder--root" data-folder="" data-root="{{$root}}">{{template "folder-icon"}}<span>{{$.L.T "shares.root_itself"}}</span></button></li>
+        {{range .Folders}}<li><button type="submit" name="pick" value="{{$root}}/{{.Path}}" formnovalidate class="folder folder--d{{.Depth}}" data-folder="{{.Path}}" data-root="{{$root}}">{{template "folder-icon"}}<span>{{.Name}}</span></button></li>{{end}}
+        {{if .Truncated}}<li class="picker__more">{{$.L.T "shares.truncated"}}</li>{{end}}
+      </ul>
+      {{end}}
+    </div>
+    {{end}}
+    <label class="switch">
+      <input type="checkbox" name="create_folder"{{if $f.CreateFolder}} checked{{end}}>
+      <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+      <span class="switch__text">{{.L.T "shares.create_folder"}}</span>
+    </label>
+  </fieldset>
+
+  <fieldset class="sheet__section">
+    <legend class="sheet__legend"><span class="sheet__num mono">03</span>{{.L.T "shares.section_access"}}</legend>
+    <p class="hint">{{.L.T "shares.access_hint"}}</p>
+    {{if $f.Users}}
+    <ul class="access">
+      {{range $f.Users}}{{$lvl := index $f.Access .Name}}
+      <li>
+        <fieldset class="access__row">
+          <legend class="access__who"><span class="avatar avatar--tiny" aria-hidden="true">{{initial .Name}}</span><span>{{.Name}}</span>{{if .Disabled}}<span class="pill pill--muted">{{$.L.T "users.disabled_tag"}}</span>{{end}}</legend>
+          <div class="segmented segmented--small">
+            <label class="segmented__item"><input type="radio" name="access_{{.Name}}" value="none"{{if not $lvl}} checked{{end}}><span>{{$.L.T "access.none"}}</span></label>
+            <label class="segmented__item"><input type="radio" name="access_{{.Name}}" value="ro"{{if eq $lvl "ro"}} checked{{end}}><span>{{$.L.T "access.ro"}}</span></label>
+            <label class="segmented__item segmented__item--accent"><input type="radio" name="access_{{.Name}}" value="rw"{{if eq $lvl "rw"}} checked{{end}}><span>{{$.L.T "access.rw"}}</span></label>
+          </div>
+        </fieldset>
+      </li>
+      {{end}}
+    </ul>
+    {{end}}
+  </fieldset>
+
+  <fieldset class="sheet__section">
+    <legend class="sheet__legend"><span class="sheet__num mono">04</span>{{.L.T "shares.section_tm"}}</legend>
+    <label class="switch">
+      <input type="checkbox" name="timemachine"{{if $f.TimeMachine}} checked{{end}} data-tm-toggle>
+      <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+      <span class="switch__text">{{.L.T "shares.tm_enable"}}</span>
+    </label>
+    <div class="field field--narrow" data-tm-fields>
+      <label class="field__label" for="share-tm">{{.L.T "shares.tm_max"}}</label>
+      <input class="input mono" id="share-tm" name="timemachine_max" value="{{$f.TMMax}}" maxlength="8" autocomplete="off" placeholder="{{.L.T "shares.tm_placeholder"}}" aria-describedby="share-tm-hint">
+      <p class="hint" id="share-tm-hint">{{.L.T "shares.tm_hint"}}</p>
+    </div>
+  </fieldset>
+
+  <div class="sheet__actions">
+    {{if $f.Editing}}<a class="btn btn--danger" href="/shares/{{$f.Original}}/delete" data-dialog="del-share">{{.L.T "shares.delete"}}</a>{{end}}
+    <span class="sheet__spacer"></span>
+    <a class="btn btn--ghost" href="/shares">{{.L.T "dialog.cancel"}}</a>
+    <button type="submit" class="btn btn--primary">{{if $f.Editing}}{{.L.T "shares.save"}}{{else}}{{.L.T "shares.create"}}{{end}}</button>
+  </div>
+</form>
+
+{{if $f.Editing}}
+<dialog id="del-share" class="dialog" aria-labelledby="del-share-title">
+  <form method="post" action="/shares/{{$f.Original}}/delete" class="form">
+    {{template "hidden" .}}
+    <p class="eyebrow eyebrow--danger">{{.L.T "dialog.irreversible"}}</p>
+    <h2 class="dialog__title" id="del-share-title">{{.L.T "shares.delete_title" "name" $f.Original}}</h2>
+    <p class="dialog__text">{{.L.T "shares.delete_text"}}</p>
+    <div class="dialog__actions">
+      <button type="button" class="btn btn--ghost" data-close>{{.L.T "dialog.cancel"}}</button>
+      <button type="submit" class="btn btn--danger-solid">{{.L.T "shares.delete_submit"}}</button>
+    </div>
+    {{template "close-btn" .L}}
+  </form>
+</dialog>
+{{end}}
+{{end}}

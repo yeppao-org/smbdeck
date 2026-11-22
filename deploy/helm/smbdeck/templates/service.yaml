@@ -1,0 +1,29 @@
+# The console.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "smbdeck.fullname" . }}
+  labels:
+    {{- include "smbdeck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if and (eq .Values.service.type "LoadBalancer") .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- if ne .Values.service.type "ClusterIP" }}
+  # Local by default: the console must see the client's address for its
+  # network filter (Cluster would show a node's address instead).
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy | default "Local" }}
+  {{- end }}
+  selector:
+    {{- include "smbdeck.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP

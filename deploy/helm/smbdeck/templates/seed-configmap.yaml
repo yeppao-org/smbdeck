@@ -1,0 +1,15 @@
+{{- if .Values.seed.enabled }}
+# Initial accounts and shares, read by the web container once, when the state
+# volume holds no desired state yet. Passwords come from the Secret named in
+# seed.passwordsSecret, never from here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "smbdeck.fullname" . }}-seed
+  labels:
+    {{- include "smbdeck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+data:
+  seed.json: |
+    {{- .Values.seed.config | toPrettyJson | nindent 4 }}
+{{- end }}

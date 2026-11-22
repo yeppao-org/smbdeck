@@ -1,0 +1,52 @@
+{{define "layout"}}<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>{{.L.T .Title "name" .TitleArg}} · smbdeck</title>
+<link rel="icon" href="{{asset "icon.svg"}}" type="image/svg+xml">
+<link rel="stylesheet" href="{{asset "app.css"}}">
+<script src="{{asset "app.js"}}" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">{{.L.T "a11y.skip"}}</a>
+<header class="topbar">
+  <div class="topbar__inner">
+    <a class="brand" href="/" aria-label="{{.L.T "brand.home"}}">{{template "mark"}}<span class="brand__word">smbdeck</span></a>
+    {{if .User}}
+    <nav class="nav" aria-label="{{.L.T "nav.label"}}">
+      {{if .User.Admin}}
+      <a href="/" class="nav__link"{{if eq .Nav "overview"}} aria-current="page"{{end}}>{{.L.T "nav.overview"}}</a>
+      <a href="/users" class="nav__link"{{if eq .Nav "users"}} aria-current="page"{{end}}>{{.L.T "nav.users"}}</a>
+      <a href="/shares" class="nav__link"{{if eq .Nav "shares"}} aria-current="page"{{end}}>{{.L.T "nav.shares"}}</a>
+      <a href="/audit" class="nav__link"{{if eq .Nav "audit"}} aria-current="page"{{end}}>{{.L.T "nav.audit"}}</a>
+      {{end}}
+      <a href="/account" class="nav__link"{{if eq .Nav "account"}} aria-current="page"{{end}}>{{.L.T "nav.account"}}</a>
+    </nav>
+    {{end}}
+    <div class="topbar__end">
+      {{template "langs" .}}
+      {{if .User}}
+      <form method="post" action="/logout" class="inline">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn btn--ghost btn--small" title="{{.L.T "nav.signed_in_as" "name" .User.Name}}">
+          <span class="avatar avatar--tiny" aria-hidden="true">{{initial .User.Name}}</span>{{.L.T "nav.logout"}}
+        </button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+</header>
+<main id="main" class="main" tabindex="-1">
+  {{template "flash" .}}
+  {{template "content" .}}
+</main>
+<footer class="footer">
+  <span class="mono">smbdeck {{.Version}}</span>
+  <span class="footer__sep" aria-hidden="true">·</span>
+  <span>{{.L.T "footer.tagline"}}</span>
+</footer>
+</body>
+</html>
+{{end}}

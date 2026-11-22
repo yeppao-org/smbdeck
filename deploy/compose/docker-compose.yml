@@ -1,0 +1,145 @@
+# smbdeck with Docker Compose.
+#
+#   agent      Samba itself. Root, reduced to six capabilities, read-only root
+#              file system. The only container that sees the disks.
+#   web        The console. Non-root, no capability, read-only. Sees the state
+#              volume and nothing else.
+#   discovery  Optional LAN announcements (Bonjour, Windows Network):
+#              docker compose --profile discovery up -d
+#
+# 1. Edit the roots below (host folders on the left, /roots/<name> on the right)
+#    and SMBDECK_ROOTS to match.
+# 2. Start, giving this host's address on the local network. The image is
+#    pulled from ghcr.io/yeppao-org/smbdeck (tag 0.1.0), nothing is built:
+#      SMBDECK_ADDRESS=192.168.1.50 docker compose up -d
+#    To run an image you built yourself instead:
+#      docker build -t smbdeck https://github.com/yeppao-org/smbdeck.git
+#      SMBDECK_IMAGE=smbdeck SMBDECK_ADDRESS=192.168.1.50 docker compose up -d
+# 3. No account exists yet: read the setup code in the logs and open the UI.
+#      docker compose logs web | grep setupCode
+#      http://192.168.1.50:8080/setup
+#    Or seed the first accounts instead: see seed.example.json.
+#
+# Ports are published on SMBDECK_ADDRESS only. Do not publish on every
+# address: Docker relays the connections it cannot route natively (IPv6 to
+# an IPv4-only container, for instance) through its userland proxy, and the
+# console then sees the bridge gateway's address, a private one that
+# SMBDECK_ALLOWED_NETWORKS lets in. If clients may come over IPv6, also set
+# "userland-proxy": false in /etc/docker/daemon.json, or filter at the
+# firewall.
+
+name: smbdeck
+
+x-image: &image ${SMBDECK_IMAGE:-ghcr.io/yeppao-org/smbdeck:0.1.0}
+
+services:
+  agent:
+    image: *image
+    command: ["agent"]
+    user: "0:0"
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE, SETUID, SETGID, NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /run/smbdeck:size=64m
+      - /tmp:size=16m
+    environment:
+      # name=/roots/<name>, one per mounted folder below.
+      SMBDECK_ROOTS: "media=/roots/media,backups=/roots/backups"
+      # Owner of every file created over SMB (your user on the host: `id`).
+      SMBDECK_FILES_UID: "1000"
+      SMBDECK_FILES_GID: "1000"
+      SMBDECK_SMB_NETBIOS_NAME: "NAS"
+      SMBDECK_SMB_SERVER_STRING: "NAS"
+      # Networks allowed to connect to SMB at all (authentication is still
+      # required). Empty: any.
+      # SMBDECK_SMB_HOSTS_ALLOW: "192.168.1.0/24,100.64.0.0/10"
+    volumes:
+      - state:/state:ro
+      - status:/status
+      - /srv/media:/roots/media
+      - /srv/backups:/roots/backups
+    ports:
+      - "${SMBDECK_ADDRESS:?set SMBDECK_ADDRESS to this host's address on the local network}:445:445"
+    mem_limit: 1g
+    pids_limit: 512
+
+  web:
+    image: *image
+    command: ["web"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=8m
+    environment:
+      # Names shown in the connection strings (smb://nas.local/...).
+      SMBDECK_SMB_HOSTS: "nas.local"
+      # Host names the console answers to, besides addresses and localhost
+      # (anything else gets 421: no DNS rebinding).
+      SMBDECK_ALLOWED_HOSTS: "nas.local"
+      # Who may open the console. Default: private networks and 100.64.0.0/10.
+      # SMBDECK_ALLOWED_NETWORKS: "192.168.1.0/24"
+      # Behind a reverse proxy, name it, or X-Forwarded-* headers are ignored.
+      # SMBDECK_TRUSTED_PROXIES: "172.16.0.0/12"
+      # First accounts, applied once when the state is empty.
+      # SMBDECK_SEED_FILE: /seed/seed.json
+      # SMBDECK_SEED_PASSWORDS_DIR: /seed/passwords
+    volumes:
+      - state:/state
+      # The agent's reports: read-only here.
+      - status:/status:ro
+      # - ./seed.example.json:/seed/seed.json:ro
+      # - ./passwords:/seed/passwords:ro
+    ports:
+      - "${SMBDECK_ADDRESS:?set SMBDECK_ADDRESS to this host's address on the local network}:8080:8080"
+    mem_limit: 256m
+    pids_limit: 128
+
+  # Announcements need the host network (multicast). Both run unprivileged:
+  # avahi as UID 86, wsdd2 as nobody. tini is PID 1 in the image, so wsdd2
+  # never runs as PID 1, which would collide with systemd's netlink socket on
+  # the host network ("bind: Address in use").
+  discovery-mdns:
+    profiles: [discovery]
+    image: *image
+    command: ["discovery", "mdns"]
+    user: "86:86"
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /run/smbdeck-discovery:uid=86,gid=86,mode=0755,size=1m
+    environment: &discovery-env
+      # <name>.local, announced over mDNS and WS-Discovery.
+      SMBDECK_DISCOVERY_HOSTNAME: "nas"
+      # Leave empty to announce this host's own addresses. Set it when SMB is
+      # reached at another address (a load balancer IP, for example).
+      # SMBDECK_DISCOVERY_ADDRESS: "192.168.1.50"
+      # Required: this host's interface on the local network (both announcers
+      # would otherwise answer on every interface).
+      SMBDECK_DISCOVERY_INTERFACE: "eth0"
+      # SMBDECK_DISCOVERY_TIMEMACHINE_SHARES: "Time Machine"
+    mem_limit: 64m
+
+  discovery-wsd:
+    profiles: [discovery]
+    image: *image
+    command: ["discovery", "wsd"]
+    user: "65534:65534"
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment: *discovery-env
+    mem_limit: 32m
+
+volumes:
+  state:
+  status:

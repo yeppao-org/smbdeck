@@ -1,0 +1,35 @@
+{{define "content"}}
+<section class="authcard">
+  <p class="eyebrow">{{.L.T "setup.eyebrow"}}</p>
+  <h1 class="title">{{.L.T "setup.heading"}}</h1>
+  <p class="lead">{{.L.T "setup.lead"}}</p>
+  {{template "errors" .}}
+  <form method="post" action="/setup" class="form">
+    <input type="hidden" name="pre" value="{{.Data.Pre}}">
+    <div class="field">
+      <label class="field__label" for="setup-code">{{.L.T "setup.code"}}</label>
+      <input class="input mono" id="setup-code" name="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="20" placeholder="{{.L.T "setup.code_placeholder"}}" aria-describedby="setup-code-hint" autofocus>
+      <p class="hint" id="setup-code-hint">{{.L.T "setup.code_hint"}}</p>
+    </div>
+    <div class="field">
+      <label class="field__label" for="setup-name">{{.L.T "field.account"}}</label>
+      <input class="input" id="setup-name" name="name" value="{{.Data.Name}}" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="32" pattern="[a-z_][a-z0-9_\-]{0,31}" aria-describedby="setup-name-hint">
+      <p class="hint" id="setup-name-hint">{{.L.T "field.account_hint"}}</p>
+    </div>
+    <div class="field">
+      <label class="field__label" for="setup-password">{{.L.T "field.password"}}</label>
+      <div class="input-group">
+        <input class="input" type="password" id="setup-password" name="password" autocomplete="new-password" required minlength="{{.Data.MinLength}}" maxlength="256" aria-describedby="setup-password-hint">
+        {{template "generate-btn" (dict "L" .L "For" "setup-password" "Confirm" "setup-confirm")}}
+        {{template "reveal-btn" (dict "L" .L "For" "setup-password")}}
+      </div>
+      <p class="hint" id="setup-password-hint">{{.L.T "field.password_hint" "min" .Data.MinLength}}</p>
+    </div>
+    <div class="field">
+      <label class="field__label" for="setup-confirm">{{.L.T "field.confirm"}}</label>
+      <input class="input" type="password" id="setup-confirm" name="confirm" autocomplete="new-password" required maxlength="256">
+    </div>
+    <button class="btn btn--primary btn--block" type="submit">{{.L.T "setup.submit"}}</button>
+  </form>
+</section>
+{{end}}

@@ -1,0 +1,33 @@
+{{- if .Values.networkPolicy.enabled }}
+# Who may reach the server pod. An empty peer list opens that port to any
+# source (the console still applies web.allowedNetworks, smbd still applies
+# samba.hostsAllow).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "smbdeck.fullname" . }}
+  labels:
+    {{- include "smbdeck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "smbdeck.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: http
+          protocol: TCP
+      {{- with .Values.networkPolicy.webFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    - ports:
+        - port: smb
+          protocol: TCP
+      {{- with .Values.networkPolicy.smbFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

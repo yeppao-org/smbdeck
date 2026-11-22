@@ -1,0 +1,33 @@
+{{- if .Values.smb.service.enabled }}
+# SMB (TCP 445). externalTrafficPolicy Local keeps the client address, which
+# smbd checks against samba.hostsAllow.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "smbdeck.fullname" . }}-smb
+  labels:
+    {{- include "smbdeck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+  {{- with .Values.smb.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.smb.service.type }}
+  {{- if eq .Values.smb.service.type "LoadBalancer" }}
+  {{- with .Values.smb.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  allocateLoadBalancerNodePorts: {{ .Values.smb.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
+  {{- if and .Values.smb.service.externalTrafficPolicy (ne .Values.smb.service.type "ClusterIP") }}
+  externalTrafficPolicy: {{ .Values.smb.service.externalTrafficPolicy }}
+  {{- end }}
+  selector:
+    {{- include "smbdeck.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: smb
+      port: {{ .Values.smb.service.port }}
+      targetPort: smb
+      protocol: TCP
+{{- end }}

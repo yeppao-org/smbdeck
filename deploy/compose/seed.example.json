@@ -1,0 +1,11 @@
+{
+  "users": [
+    { "name": "admin", "admin": true },
+    { "name": "alice" }
+  ],
+  "shares": [
+    { "name": "Media", "root": "media", "path": "", "access": { "admin": "rw", "alice": "ro" } },
+    { "name": "Time Machine", "root": "backups", "path": "timemachine", "createFolder": true,
+      "timeMachine": { "enabled": true, "maxSize": "1T" }, "access": { "alice": "rw" } }
+  ]
+}

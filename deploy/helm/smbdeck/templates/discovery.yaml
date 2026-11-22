@@ -1,0 +1,110 @@
+{{- if .Values.discovery.enabled }}
+{{- $hostName := required "discovery.hostName is required when discovery.enabled is true (the name before .local)" .Values.discovery.hostName | lower }}
+{{- $_ := required "discovery.interface is required when discovery.enabled is true (the node's interface on the local network)" .Values.discovery.interface }}
+# Announcements of the SMB server on the local network:
+#   - mdns: avahi publishes "<hostName>.local" (pointing to discovery.address
+#     when set, otherwise to this node) and the _smb._tcp service;
+#   - wsd: wsdd2 answers WS-Discovery (the Network view of Windows), LLMNR off.
+# Multicast does not cross networks: this pod lives on the node's network. No
+# container runs as root and none has a capability.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "smbdeck.fullname" . }}-discovery
+  labels:
+    {{- include "smbdeck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: discovery
+spec:
+  replicas: 1
+  # Recreate: on the node's network, the old and the new pod would want the
+  # same ports (5353, 3702).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "smbdeck.discoverySelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "smbdeck.discoverySelectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.discovery.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      # On the node's network, a process with PID 1 collides with systemd's
+      # netlink socket (wsdd2 fails with "bind: Address in use": netlink port
+      # IDs default to the PID). With a shared process namespace, PID 1 is the
+      # pod's pause process and wsdd2 never gets it.
+      shareProcessNamespace: true
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mdns
+          image: {{ include "smbdeck.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["discovery", "mdns"]
+          env:
+            {{- include "smbdeck.discoveryEnv" (dict "ctx" . "hostName" $hostName) | nindent 12 }}
+          securityContext:
+            # avahi's own account in the image.
+            runAsUser: 86
+            runAsGroup: 86
+            {{- include "smbdeck.restricted" . | nindent 12 }}
+          volumeMounts:
+            # avahi's configuration and runtime directory. kubelet creates an
+            # emptyDir with mode 0777, so UID 86 creates what it needs there
+            # (avahi insists that its runtime directory belongs to it): no
+            # root init container is needed.
+            - name: discovery-run
+              mountPath: /run/smbdeck-discovery
+          {{- with .Values.discovery.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        - name: wsd
+          image: {{ include "smbdeck.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["discovery", "wsd"]
+          env:
+            {{- include "smbdeck.discoveryEnv" (dict "ctx" . "hostName" $hostName) | nindent 12 }}
+          securityContext:
+            # nobody
+            runAsUser: 65534
+            runAsGroup: 65534
+            {{- include "smbdeck.restricted" . | nindent 12 }}
+          {{- with .Values.discovery.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: discovery-run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+      {{- with .Values.discovery.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.discovery.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.discovery.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -1,0 +1,139 @@
+name: CI
+
+# Lint, vulnerabilities, unit tests (race detector), Helm chart, multi-arch
+# image (with a smoke test of the arm64 one under QEMU), Trivy and the Docker
+# integration test (a real Samba driven through the console). The jobs call
+# the same Makefile targets as a developer machine: everything runs in pinned
+# containers; Go modules and the build cache are kept between runs.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_CACHE: ${{ github.workspace }}/../go-cache
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.GO_CACHE }}
+          key: go-lint-${{ hashFiles('go.sum') }}
+          restore-keys: go-lint-
+      - name: gofmt
+        run: make fmt-check
+      - name: golangci-lint
+        run: make lint
+      - name: govulncheck
+        run: make vulncheck
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.GO_CACHE }}
+          key: go-test-${{ hashFiles('go.sum') }}
+          restore-keys: go-test-
+      - name: go vet
+        run: make vet
+      - name: go test -race
+        run: make test
+
+  helm:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: helm lint and template
+        run: make helm-lint
+
+  image:
+    name: Image, Trivy, integration
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.GO_CACHE }}
+          key: go-it-${{ hashFiles('go.sum') }}
+          restore-keys: go-it-
+
+      # QEMU: the runtime stage installs Alpine packages and wsdd2 is compiled
+      # for each platform.
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build linux/amd64 and linux/arm64
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          build-args: VERSION=sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Load linux/arm64
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          tags: smbdeck:ci-arm64
+          build-args: VERSION=sha-${{ github.sha }}
+          cache-from: type=gha
+
+      - name: Smoke test of the arm64 image (QEMU)
+        run: |
+          docker run --rm --platform linux/arm64 smbdeck:ci-arm64 version
+          docker run --rm --platform linux/arm64 --entrypoint /usr/sbin/smbd smbdeck:ci-arm64 --version
+          docker run --rm --platform linux/arm64 --entrypoint /usr/sbin/avahi-daemon smbdeck:ci-arm64 --version
+          docker run --rm --platform linux/arm64 --entrypoint sh smbdeck:ci-arm64 -c 'test -x /usr/sbin/wsdd2'
+          docker image rm smbdeck:ci-arm64
+
+      - name: Load linux/amd64 for the scan and the integration test
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: smbdeck:ci
+          build-args: VERSION=sha-${{ github.sha }}
+          cache-from: type=gha
+
+      # Trivy runs from its official image, pinned by digest (Makefile), not
+      # through a third-party action.
+      - name: Trivy (HIGH and CRITICAL with a fix)
+        run: make scan IMAGE=smbdeck:ci
+
+      - name: Integration test
+        run: make test-integration IMAGE=smbdeck:ci

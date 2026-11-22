@@ -1,0 +1,8 @@
+{{define "content"}}
+<section class="scene scene--narrow">
+  <p class="eyebrow">{{.L.T "error.eyebrow"}}</p>
+  <h1 class="title">{{.L.T "error.title"}}</h1>
+  {{template "errors" .}}
+  <p class="actions"><a class="btn btn--ghost" href="/">{{.L.T "error.back"}}</a></p>
+</section>
+{{end}}

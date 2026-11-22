@@ -1,0 +1,30 @@
+smbdeck
+Copyright 2026 The smbdeck authors
+
+smbdeck itself is licensed under the Apache License, Version 2.0 (LICENSE).
+
+The container image also ships the following third-party software, each under
+its own license. Their source code is available from the locations below.
+
+- Samba (smbd, smbcontrol, smbstatus), GPL-3.0-or-later
+  Alpine Linux packages samba-server and samba-common-tools.
+  https://www.samba.org/ and https://pkgs.alpinelinux.org/
+
+- Avahi (avahi-daemon), LGPL-2.1-or-later
+  Alpine Linux package avahi. https://avahi.org/
+
+- wsdd2 1.8.7, GPL-3.0
+  Copyright (c) 2016 NETGEAR, Copyright (c) 2016 Hiro Sugawara.
+  Built from the original source tarball kept by the Debian archive
+  (the upstream repository no longer exists):
+  https://snapshot.debian.org/file/28506e4e22bf56ca81edfd348a5fb45d0df02ebf
+  SHA-256 2b1e7720435a1e067388660ec3edb321a4c91b4f9d0928ba27d0a8d89b7ef3b9
+
+- tini, MIT. Alpine Linux package tini. https://github.com/krallin/tini
+
+- Host Grotesk (embedded web font), SIL Open Font License 1.1
+  Copyright 2023 The Host Grotesk Project Authors
+  (https://github.com/Element-Type/HostGrotesk).
+  License text: internal/web/assets/static/fonts/OFL.txt
+
+- golang.org/x/crypto (MD4 for NT hashes), BSD-3-Clause.

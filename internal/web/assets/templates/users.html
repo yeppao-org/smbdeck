@@ -1,0 +1,113 @@
+{{define "content"}}{{$d := .Data}}
+<section class="pagehead">
+  <div>
+    <p class="eyebrow">{{.L.T "users.eyebrow"}}</p>
+    <h1 class="title">{{.L.T "users.title"}}</h1>
+    <p class="lead">{{.L.T "users.lead"}}</p>
+  </div>
+  {{template "status" (dict "L" .L "S" $d.Status)}}
+</section>
+
+<div class="split">
+  <section class="panel" aria-labelledby="new-user-title">
+    <p class="eyebrow">{{.L.T "users.new_eyebrow"}}</p>
+    <h2 class="panel__title" id="new-user-title">{{.L.T "users.new"}}</h2>
+    {{template "errors" .}}
+    <form method="post" action="/users" class="form">
+      {{template "hidden" .}}
+      <div class="field">
+        <label class="field__label" for="new-name">{{.L.T "field.account"}}</label>
+        <input class="input" id="new-name" name="name" value="{{$d.Form.Name}}" required maxlength="32" autocomplete="off" autocapitalize="none" spellcheck="false" pattern="[a-z_][a-z0-9_\-]{0,31}" aria-describedby="new-name-hint">
+        <p class="hint" id="new-name-hint">{{.L.T "field.account_hint"}}</p>
+      </div>
+      <div class="field">
+        <label class="field__label" for="new-password">{{.L.T "field.password"}}</label>
+        <div class="input-group">
+          <input class="input mono" type="password" id="new-password" name="password" autocomplete="new-password" minlength="{{$d.MinLength}}" maxlength="256" aria-describedby="new-password-hint">
+          {{template "generate-btn" (dict "L" .L "For" "new-password")}}
+          {{template "reveal-btn" (dict "L" .L "For" "new-password")}}
+        </div>
+        <p class="hint" id="new-password-hint">{{.L.T "users.password_hint" "min" $d.MinLength}}</p>
+      </div>
+      <label class="switch">
+        <input type="checkbox" name="admin"{{if $d.Form.Admin}} checked{{end}}>
+        <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+        <span class="switch__text">{{.L.T "users.make_admin"}}</span>
+      </label>
+      <button class="btn btn--primary" type="submit">{{template "plus"}}{{.L.T "users.create"}}</button>
+    </form>
+  </section>
+
+  <section class="panel panel--list" aria-labelledby="list-title">
+    <h2 class="sr-only" id="list-title">{{.L.T "users.list"}}</h2>
+    <ul class="rows stagger">
+      {{range $d.Users}}
+      <li class="row row--actions{{if .Disabled}} row--off{{end}}">
+        <span class="avatar" aria-hidden="true">{{initial .Name}}</span>
+        <span class="row__main">
+          <span class="row__title">{{.Name}}
+            {{if .Admin}}<span class="pill pill--accent">{{$.L.T "users.admin"}}</span>{{end}}
+            {{if .Disabled}}<span class="pill pill--muted">{{$.L.T "users.disabled_tag"}}</span>{{end}}
+            {{if .Self}}<span class="pill">{{$.L.T "users.you"}}</span>{{end}}
+          </span>
+          <span class="row__meta">
+            <span>{{$.L.T "users.created_on" "date" (when $.L .CreatedAt)}}</span>
+            <span aria-hidden="true">·</span>
+            <span>{{if .Shares}}{{range $i, $s := .Shares}}{{if $i}}, {{end}}{{$s.Share}} <span class="t-dim">{{$.L.T (levelKey $s.Level)}}</span>{{end}}{{else}}{{$.L.T "users.no_share"}}{{end}}</span>
+          </span>
+        </span>
+        <span class="row__actions">
+          <a class="btn btn--ghost btn--small" href="/users/{{.Name}}/password" data-dialog="pw-{{.Name}}">{{$.L.T "users.reset"}}</a>
+          <form method="post" action="/users/{{.Name}}/{{if .Disabled}}enable{{else}}disable{{end}}" class="inline">
+            {{template "hidden" $}}
+            <button type="submit" class="btn btn--ghost btn--small">{{if .Disabled}}{{$.L.T "users.enable"}}{{else}}{{$.L.T "users.disable"}}{{end}}</button>
+          </form>
+          <form method="post" action="/users/{{.Name}}/{{if .Admin}}revoke-admin{{else}}grant-admin{{end}}" class="inline">
+            {{template "hidden" $}}
+            <button type="submit" class="btn btn--ghost btn--small">{{if .Admin}}{{$.L.T "users.revoke"}}{{else}}{{$.L.T "users.grant"}}{{end}}</button>
+          </form>
+          <a class="btn btn--danger btn--small" href="/users/{{.Name}}/delete" data-dialog="del-{{.Name}}">{{$.L.T "users.delete"}}</a>
+        </span>
+
+        <dialog id="pw-{{.Name}}" class="dialog" aria-labelledby="pw-{{.Name}}-title">
+          <form method="post" action="/users/{{.Name}}/password" class="form">
+            {{template "hidden" $}}
+            <p class="eyebrow">{{$.L.T "users.reset_eyebrow"}}</p>
+            <h2 class="dialog__title" id="pw-{{.Name}}-title">{{$.L.T "users.reset_title" "name" .Name}}</h2>
+            <p class="dialog__text">{{$.L.T "users.reset_text"}}</p>
+            <div class="field">
+              <label class="field__label" for="pw-{{.Name}}-input">{{$.L.T "field.new_password"}}</label>
+              <div class="input-group">
+                <input class="input mono" type="password" id="pw-{{.Name}}-input" name="password" autocomplete="new-password" minlength="{{$d.MinLength}}" maxlength="256">
+                {{template "generate-btn" (dict "L" $.L "For" (printf "pw-%s-input" .Name))}}
+                {{template "reveal-btn" (dict "L" $.L "For" (printf "pw-%s-input" .Name))}}
+              </div>
+              <p class="hint">{{$.L.T "users.password_hint" "min" $d.MinLength}}</p>
+            </div>
+            <div class="dialog__actions">
+              <button type="button" class="btn btn--ghost" data-close>{{$.L.T "dialog.cancel"}}</button>
+              <button type="submit" class="btn btn--primary">{{$.L.T "users.reset_submit"}}</button>
+            </div>
+            {{template "close-btn" $.L}}
+          </form>
+        </dialog>
+
+        <dialog id="del-{{.Name}}" class="dialog" aria-labelledby="del-{{.Name}}-title">
+          <form method="post" action="/users/{{.Name}}/delete" class="form">
+            {{template "hidden" $}}
+            <p class="eyebrow eyebrow--danger">{{$.L.T "dialog.irreversible"}}</p>
+            <h2 class="dialog__title" id="del-{{.Name}}-title">{{$.L.T "users.delete_title" "name" .Name}}</h2>
+            <p class="dialog__text">{{$.L.T "users.delete_text"}}</p>
+            <div class="dialog__actions">
+              <button type="button" class="btn btn--ghost" data-close>{{$.L.T "dialog.cancel"}}</button>
+              <button type="submit" class="btn btn--danger-solid">{{$.L.T "users.delete_submit"}}</button>
+            </div>
+            {{template "close-btn" $.L}}
+          </form>
+        </dialog>
+      </li>
+      {{end}}
+    </ul>
+  </section>
+</div>
+{{end}}

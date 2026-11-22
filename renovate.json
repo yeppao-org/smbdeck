@@ -1,0 +1,38 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "labels": ["dependencies"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Images pinned by digest outside Dockerfiles: Makefile, integration test, demo, screenshots",
+      "managerFilePatterns": [
+        "/(^|/)Makefile$/",
+        "/^test/integration/run\\.sh$/",
+        "/^deploy/compose/.+\\.ya?ml$/",
+        "/^docs/screenshots/take\\.sh$/"
+      ],
+      "matchStrings": [
+        "(?<depName>[a-z0-9][a-z0-9./_-]*[a-z0-9]):(?<currentValue>[A-Za-z0-9][A-Za-z0-9._-]*)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Alpine packages pinned in the Dockerfile",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": ["\\s(?<depName>[a-z][a-z0-9-]*)=(?<currentValue>[0-9][^\\s\\\\]*)"],
+      "datasourceTemplate": "repology",
+      "packageNameTemplate": "alpine_3_24/{{{depName}}}",
+      "versioningTemplate": "loose"
+    },
+    {
+      "customType": "regex",
+      "description": "govulncheck version in the Makefile",
+      "managerFilePatterns": ["/(^|/)Makefile$/"],
+      "matchStrings": ["golang\\.org/x/vuln/cmd/govulncheck@(?<currentValue>v[0-9.]+)"],
+      "depNameTemplate": "golang.org/x/vuln",
+      "datasourceTemplate": "go"
+    }
+  ]
+}

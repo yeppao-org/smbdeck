@@ -1,0 +1,43 @@
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags:
+    - integration
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - copyloopvar
+    - errorlint
+    - gosec
+    - misspell
+    - nolintlint
+    - unconvert
+    - usestdlibvars
+  settings:
+    misspell:
+      locale: US
+    gosec:
+      excludes:
+        # G304 (file path from a variable): every path comes from the
+        # configuration or is joined under a directory the program owns.
+        - G304
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - bodyclose
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/yeppao-org/smbdeck

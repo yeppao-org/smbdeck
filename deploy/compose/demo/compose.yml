@@ -1,0 +1,78 @@
+# Local demo: fake accounts and folders, nothing real. Started by `make demo`
+# (see demo.sh), removed with `make demo-down`.
+name: smbdeck-demo
+
+x-image: &image ${IMAGE:-smbdeck:dev}
+
+services:
+  prepare:
+    image: alpine:3.24.3@sha256:b3413572228e34bd1c9245f5565e6cd127005655e8a7899aef33d8e83255c9e6
+    command:
+      - sh
+      - -c
+      - >-
+        mkdir -p /roots/library/Photos/2024 /roots/library/Photos/2025 /roots/library/Music/Albums
+        /roots/library/Projects/website /roots/library/Projects/design /roots/library/Archive
+        /roots/backups/timemachine /roots/backups/laptops &&
+        chown -R 1000:1000 /roots
+    volumes:
+      - library:/roots/library
+      - backups:/roots/backups
+    mem_limit: 64m
+
+  agent:
+    image: *image
+    command: ["agent"]
+    user: "0:0"
+    depends_on:
+      prepare:
+        condition: service_completed_successfully
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE, SETUID, SETGID, NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /run/smbdeck:size=64m
+      - /tmp:size=16m
+    environment:
+      SMBDECK_ROOTS: "library=/roots/library,backups=/roots/backups"
+      SMBDECK_FILES_UID: "1000"
+      SMBDECK_FILES_GID: "1000"
+      SMBDECK_SMB_NETBIOS_NAME: "NAS"
+      SMBDECK_SMB_SERVER_STRING: "smbdeck demo"
+    volumes:
+      - state:/state:ro
+      - status:/status
+      - library:/roots/library
+      - backups:/roots/backups
+    ports:
+      - "127.0.0.1:1445:445"
+    mem_limit: 512m
+
+  web:
+    image: *image
+    command: ["web"]
+    depends_on: [agent]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=8m
+    environment:
+      SMBDECK_SMB_HOSTS: "nas.local"
+      SMBDECK_SEED_FILE: /seed/seed.json
+      SMBDECK_SEED_PASSWORDS_DIR: /seed/passwords
+    volumes:
+      - state:/state
+      - status:/status:ro
+      - ./seed.json:/seed/seed.json:ro
+      - ./passwords:/seed/passwords:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    mem_limit: 256m
+
+volumes:
+  state:
+  status:
+  library:
+  backups:

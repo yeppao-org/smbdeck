@@ -1,0 +1,115 @@
+# Everything enabled, for rendering and schema checks only (documentation
+# addresses, no real deployment).
+image:
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+imagePullSecrets:
+  - name: registry-credentials
+
+roots:
+  - name: drive1
+    hostPath: /mnt/drive1
+  - name: media_2
+    hostPath: /mnt/media
+    type: DirectoryOrCreate
+
+filesUid: 1000
+filesGid: 100
+
+samba:
+  netbiosName: NAS
+  serverString: Home NAS
+  hostsAllow:
+    - 192.168.1.0/24
+    - 100.64.0.0/10
+
+web:
+  allowedNetworks:
+    - 100.64.0.0/10
+    - 192.168.1.0/24
+  trustedProxies:
+    - 10.42.0.0/16
+  allowedHosts:
+    - nas.example.lan
+  smbHosts:
+    - nas.example.lan
+    - 192.168.1.50
+  cookieSecure: always
+  extraEnv:
+    - name: SMBDECK_SESSION_IDLE
+      value: 1h
+
+log:
+  format: json
+
+seed:
+  enabled: true
+  config:
+    users:
+      - name: admin
+        admin: true
+      - name: alice
+    shares:
+      - name: Media
+        root: drive1
+        path: media
+        access:
+          admin: rw
+          alice: ro
+  passwordsSecret: smbdeck-seed-passwords
+
+persistence:
+  storageClass: standard
+  size: 128Mi
+
+service:
+  type: LoadBalancer
+  loadBalancerIP: 192.0.2.11
+  externalTrafficPolicy: Local
+
+smb:
+  service:
+    enabled: true
+    annotations:
+      metallb.io/loadBalancerIPs: 192.0.2.10
+
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: nas.example.lan
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: nas-example-lan-tls
+      hosts:
+        - nas.example.lan
+
+agent:
+  extraEnv:
+    - name: SMBDECK_POLL_INTERVAL
+      value: 2s
+
+nodeSelector:
+  kubernetes.io/hostname: nas
+priorityClassName: ""
+
+discovery:
+  enabled: true
+  hostName: nas
+  address: 192.0.2.10
+  interface: eth0
+  displayName: Home NAS
+  timeMachineShares:
+    - Backups
+  nodeSelector:
+    kubernetes.io/hostname: nas
+
+networkPolicy:
+  enabled: true
+  webFrom:
+    - ipBlock:
+        cidr: 100.64.0.0/10
+  smbFrom:
+    - ipBlock:
+        cidr: 192.168.1.0/24

@@ -1,0 +1,40 @@
+{{define "content"}}
+<section class="pagehead">
+  <div>
+    <p class="eyebrow">{{.L.T "audit.eyebrow"}}</p>
+    <h1 class="title">{{.L.T "audit.title"}}</h1>
+    <p class="lead">{{.L.T "audit.lead"}}</p>
+  </div>
+</section>
+{{if .Data}}
+<div class="tablewrap">
+  <table class="table">
+    <caption class="sr-only">{{.L.T "audit.caption"}}</caption>
+    <thead>
+      <tr>
+        <th scope="col">{{.L.T "audit.col_time"}}</th>
+        <th scope="col">{{.L.T "audit.col_actor"}}</th>
+        <th scope="col">{{.L.T "audit.col_action"}}</th>
+        <th scope="col">{{.L.T "audit.col_target"}}</th>
+        <th scope="col">{{.L.T "audit.col_ip"}}</th>
+        <th scope="col">{{.L.T "audit.col_result"}}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Data}}
+      <tr>
+        <td class="mono t-dim"><time datetime="{{iso .Time}}">{{when $.L .Time}}</time></td>
+        <td>{{if eq .Actor "-"}}<span class="t-dim">{{$.L.T "audit.unknown"}}</span>{{else if eq .Actor "seed"}}<span class="t-dim">{{$.L.T "audit.seed"}}</span>{{else}}{{.Actor}}{{end}}</td>
+        <td>{{$.L.T (auditKey .Action)}}</td>
+        <td>{{.Target}}</td>
+        <td class="mono t-dim">{{.IP}}</td>
+        <td>{{if eq .Result "ok"}}<span class="pill pill--ok">{{$.L.T "audit.ok"}}</span>{{else}}<span class="pill pill--bad">{{$.L.T "audit.denied"}}</span>{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="empty"><p class="empty__title">{{.L.T "audit.empty"}}</p></div>
+{{end}}
+{{end}}

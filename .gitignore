@@ -1,0 +1,16 @@
+# Build output
+/bin/
+/dist/
+*.test
+*.out
+coverage.*
+
+# Local runs (demo state, integration scratch)
+/.local/
+/tmp/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,14 @@
+{{define "content"}}{{$d := .Data}}
+<section class="pagehead">
+  <div>
+    <p class="eyebrow">{{.L.T "shares.eyebrow"}}</p>
+    <h1 class="title">{{.L.T "shares.title"}}</h1>
+    <p class="lead">{{.L.T "shares.lead"}}</p>
+  </div>
+  <div class="pagehead__end">
+    {{template "status" (dict "L" .L "S" $d.Status)}}
+    <a class="btn btn--primary" href="/shares/new">{{template "plus"}}{{.L.T "shares.new"}}</a>
+  </div>
+</section>
+{{template "sharecards" (dict "L" .L "Shares" $d.Shares "Hosts" $d.Hosts)}}
+{{end}}

@@ -1,0 +1,19 @@
+{
+  "users": [
+    { "name": "admin", "admin": true },
+    { "name": "alice" },
+    { "name": "bob" },
+    { "name": "carol", "disabled": true }
+  ],
+  "shares": [
+    { "name": "Photos", "root": "library", "path": "Photos",
+      "access": { "admin": "rw", "alice": "rw", "bob": "ro" } },
+    { "name": "Music", "root": "library", "path": "Music",
+      "access": { "alice": "ro", "bob": "ro", "carol": "ro" } },
+    { "name": "Projects", "root": "library", "path": "Projects",
+      "access": { "admin": "rw", "alice": "rw" } },
+    { "name": "Time Machine", "root": "backups", "path": "timemachine",
+      "timeMachine": { "enabled": true, "maxSize": "1T" }, "access": { "bob": "rw" } },
+    { "name": "Archive", "root": "library", "path": "Archive", "access": {} }
+  ]
+}

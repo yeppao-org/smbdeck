@@ -1,0 +1,75 @@
+{{define "content"}}{{$d := .Data}}
+<section class="pagehead">
+  <div>
+    <p class="eyebrow">{{.L.T "account.eyebrow"}}</p>
+    <h1 class="title">{{.L.T "account.heading" "name" .User.Name}}</h1>
+    <p class="lead">{{.L.T "account.lead"}}</p>
+  </div>
+  {{template "status" (dict "L" .L "S" $d.Status)}}
+</section>
+
+<div class="split">
+  <section class="panel" aria-labelledby="my-shares">
+    <p class="eyebrow">{{.L.T "account.shares_eyebrow"}}</p>
+    <h2 class="panel__title" id="my-shares">{{.L.T "account.shares"}}</h2>
+    {{if $d.Shares}}
+    <ul class="myshares stagger">
+      {{range $d.Shares}}{{$share := .Share}}
+      <li class="myshare">
+        <div class="myshare__head">
+          <span class="myshare__name">{{.Share}}</span>
+          <span class="pill{{if eq .Level "rw"}} pill--accent{{end}}">{{$.L.T (levelKey .Level)}}</span>
+        </div>
+        {{range $d.Hosts}}
+        <div class="copyline copyline--small"><code class="mono">{{smbURL . $share}}</code>{{template "copy" $.L}}</div>
+        <div class="copyline copyline--small"><code class="mono">{{uncPath . $share}}</code>{{template "copy" $.L}}</div>
+        {{end}}
+      </li>
+      {{end}}
+    </ul>
+    <details class="howto">
+      <summary>{{.L.T "account.howto"}}</summary>
+      <ol>
+        <li>{{.L.T "account.howto_mac"}}</li>
+        <li>{{.L.T "account.howto_windows"}}</li>
+        <li>{{.L.T "account.howto_linux"}}</li>
+      </ol>
+    </details>
+    {{else}}
+    <p class="empty__text">{{.L.T "account.no_shares"}}</p>
+    {{end}}
+  </section>
+
+  <section class="panel" aria-labelledby="pw-title">
+    <p class="eyebrow">{{.L.T "account.password_eyebrow"}}</p>
+    <h2 class="panel__title" id="pw-title">{{.L.T "account.password"}}</h2>
+    {{template "errors" .}}
+    <form method="post" action="/account/password" class="form">
+      {{template "hidden" .}}
+      <input type="text" name="username" value="{{.User.Name}}" autocomplete="username" hidden>
+      <div class="field">
+        <label class="field__label" for="cur-password">{{.L.T "field.current_password"}}</label>
+        <div class="input-group">
+          <input class="input" type="password" id="cur-password" name="current" autocomplete="current-password" required maxlength="256">
+          {{template "reveal-btn" (dict "L" .L "For" "cur-password")}}
+        </div>
+      </div>
+      <div class="field">
+        <label class="field__label" for="new-password">{{.L.T "field.new_password"}}</label>
+        <div class="input-group">
+          <input class="input mono" type="password" id="new-password" name="password" autocomplete="new-password" required minlength="{{$d.MinLength}}" maxlength="256" aria-describedby="new-password-hint">
+          {{template "generate-btn" (dict "L" .L "For" "new-password" "Confirm" "confirm-password")}}
+          {{template "reveal-btn" (dict "L" .L "For" "new-password")}}
+        </div>
+        <p class="hint" id="new-password-hint">{{.L.T "field.password_hint" "min" $d.MinLength}}</p>
+      </div>
+      <div class="field">
+        <label class="field__label" for="confirm-password">{{.L.T "field.confirm"}}</label>
+        <input class="input mono" type="password" id="confirm-password" name="confirm" autocomplete="new-password" required maxlength="256">
+      </div>
+      <p class="hint">{{.L.T "account.password_effect"}}</p>
+      <button class="btn btn--primary" type="submit">{{.L.T "account.password_submit"}}</button>
+    </form>
+  </section>
+</div>
+{{end}}

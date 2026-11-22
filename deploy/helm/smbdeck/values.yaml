@@ -1,0 +1,272 @@
+# Default values for smbdeck.
+#
+# One image, three roles:
+#   agent      runs smbd and applies the desired state. Root, reduced to six
+#              capabilities, no privilege escalation, read-only root file system.
+#              The only container that sees the share roots.
+#   web        the console. UID 10001, no capability, read-only root file system.
+#              Mounts the state volume and nothing else.
+#   discovery  optional mDNS/Bonjour and WS-Discovery announcements, on the host
+#              network (multicast does not cross networks). avahi as UID 86,
+#              wsdd2 as nobody, no capability.
+#
+# agent and web share one pod (and the state volume). See README.md.
+
+image:
+  # The published image. To run one you built, point this at your own registry.
+  repository: ghcr.io/yeppao-org/smbdeck
+  # Empty means the chart's appVersion.
+  tag: ""
+  # Optional, for example "sha256:...". When set, the image is pulled by digest.
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+#  - name: my-registry
+
+nameOverride: ""
+fullnameOverride: ""
+
+# --- Share roots ---------------------------------------------------------------
+# Directories of the node, mounted into the agent only, at /roots/<name>.
+# Shares are folders under one of them; the agent refuses any path that leads
+# outside its root, symbolic links included.
+#   name      lower-case letters, digits, - and _ (what the console shows)
+#   hostPath  directory on the node
+#   type      Directory (default): the pod waits if the directory is missing,
+#             for example while a disk is not mounted, instead of writing to the
+#             system disk. DirectoryOrCreate creates it.
+# Hosts paths pin the pod to the node that has them: set nodeSelector.
+# Without any root the agent runs, but there is nothing to share.
+roots: []
+#  - name: drive1
+#    hostPath: /mnt/drive1
+#  - name: drive2
+#    hostPath: /mnt/drive2
+#    type: Directory
+
+# Every file created through SMB belongs to this UID and GID on the node,
+# whichever account created it (Samba "force user" / "force group"). Access per
+# account is enforced by Samba. Never 0, and not in 20000-59999 (account UIDs).
+filesUid: 1000
+filesGid: 1000
+
+# --- Samba (agent) ---------------------------------------------------------------
+samba:
+  # Server name, 15 characters at most (letters, digits, dashes).
+  netbiosName: SMBDECK
+  # Description some clients display.
+  serverString: smbdeck
+  workgroup: WORKGROUP
+  # Networks allowed to connect over SMB (in addition to authentication).
+  # Empty means any. With a LoadBalancer Service, keep
+  # smb.service.externalTrafficPolicy=Local so smbd sees the real client address.
+  hostsAllow: []
+  #  - 192.168.1.0/24
+  #  - 100.64.0.0/10
+  # Samba's debug level, 0 to 10.
+  logLevel: 1
+  # SMB signing: mandatory (every supported client signs) or auto.
+  signing: mandatory
+
+# --- Web console -------------------------------------------------------------------
+web:
+  # Networks allowed to reach the console at all; others get 403 before any
+  # page. Empty means the built-in default: loopback, RFC 1918, 100.64.0.0/10
+  # (Tailscale and other overlays), IPv6 unique-local and link-local.
+  # Behind a Service, the client address is the one kube-proxy delivers:
+  # keep externalTrafficPolicy=Local on a LoadBalancer, or use a trusted proxy.
+  allowedNetworks: []
+  #  - 100.64.0.0/10
+  # Proxies allowed to set X-Forwarded-For and X-Forwarded-Proto (for example
+  # the ingress controller's pod network). Empty: those headers are ignored.
+  trustedProxies: []
+  # Host names the console answers to (the Host header), besides IP addresses
+  # and localhost: anything else gets 421 (defeats DNS rebinding). The
+  # ingress hosts are added automatically.
+  allowedHosts: []
+  #  - nas.example.lan
+  # Names or addresses shown in the connection strings (smb://<host>/<share>).
+  # Empty means the host name used to reach the console.
+  smbHosts: []
+  #  - nas.example.lan
+  #  - 192.168.1.50
+  passwordMinLength: 12
+  # Secure cookies: auto (when the request came over HTTPS, directly or through
+  # a trusted proxy), always, or never.
+  cookieSecure: auto
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  # Extra environment variables, for example SMBDECK_SESSION_IDLE or
+  # SMBDECK_TLS_CERT / SMBDECK_TLS_KEY (with extraVolumes).
+  extraEnv: []
+  extraVolumeMounts: []
+
+# Logging of the smbdeck processes (not of Samba): debug, info, warn, error;
+# text or json.
+log:
+  level: info
+  format: text
+
+# --- Seed ----------------------------------------------------------------------------
+# Initial accounts and shares. Applied ONCE, when the state volume holds no
+# desired state yet; ignored afterwards (the console is then the source of
+# truth). Without a seed, the console offers to create the first administrator,
+# once, with a setup code printed in the web container's logs.
+seed:
+  enabled: false
+  # The seed file, rendered as JSON. Passwords are never in it.
+  config: {}
+  #  users:
+  #    - name: admin
+  #      admin: true
+  #    - name: alice
+  #  shares:
+  #    - name: Media
+  #      root: drive1
+  #      path: media
+  #      access:
+  #        admin: rw
+  #        alice: ro
+  # Name of an existing Secret with one key per account (key = account name,
+  # value = initial password). Mounted read-only into the web container only;
+  # passwords are hashed (NT hash) and never stored.
+  passwordsSecret: ""
+
+# --- Persistence -----------------------------------------------------------------------
+# The state volume (/state): desired state (NT hashes: treat it as a secret),
+# agent status, folder tree, audit journal. Small.
+persistence:
+  enabled: true
+  # Use an existing PersistentVolumeClaim instead of creating one.
+  existingClaim: ""
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 64Mi
+  # Keep the claim when the release is uninstalled (accounts survive).
+  keep: true
+  annotations: {}
+
+# --- Services ----------------------------------------------------------------------------
+service:
+  # The console.
+  type: ClusterIP
+  port: 80
+  annotations: {}
+  # Only for type LoadBalancer.
+  loadBalancerIP: ""
+  # For LoadBalancer and NodePort Services. Empty means Local, which keeps the
+  # client address (needed for web.allowedNetworks); Cluster would show a
+  # node's address, private and allowed, to the console.
+  externalTrafficPolicy: ""
+
+smb:
+  service:
+    # A Service for SMB (TCP 445). LoadBalancer by default: SMB clients need a
+    # stable address on the local network (MetalLB, a cloud load balancer...).
+    enabled: false
+    type: LoadBalancer
+    port: 445
+    # For example, with MetalLB: metallb.io/loadBalancerIPs: 192.168.1.50
+    annotations: {}
+    loadBalancerIP: ""
+    # Local: smbd sees the real client address (samba.hostsAllow).
+    externalTrafficPolicy: Local
+    # No node port: SMB is only reachable through the load balancer address.
+    allocateLoadBalancerNodePorts: false
+
+ingress:
+  # An Ingress for the console. Add the controller's address range to
+  # web.trustedProxies, or the console sees every client as the controller (and
+  # web.allowedNetworks applies to the controller, not to the client).
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: smbdeck.example.lan
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: smbdeck-tls
+  #    hosts:
+  #      - smbdeck.example.lan
+
+# --- Agent container ---------------------------------------------------------------------
+agent:
+  # smbd takes memory per connected client (one process per session).
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 1Gi
+  # Size of the in-memory directory holding the generated accounts, smb.conf
+  # and Samba's runtime files.
+  runSizeLimit: 64Mi
+  # Extra environment variables, for example SMBDECK_POLL_INTERVAL.
+  extraEnv: []
+
+# Extra volumes for the pod (used with web.extraVolumeMounts).
+extraVolumes: []
+
+# --- Pod ---------------------------------------------------------------------------------
+podAnnotations: {}
+podLabels: {}
+priorityClassName: ""
+# Share roots are host paths: pin the pod to the node that has the disks.
+nodeSelector: {}
+#  kubernetes.io/hostname: nas
+tolerations: []
+affinity: {}
+terminationGracePeriodSeconds: 30
+
+# --- Discovery (optional) ------------------------------------------------------------------
+# Announces "<hostName>.local" and the SMB service on the local network. Runs
+# on the host network of a node attached to that network (nodeSelector).
+discovery:
+  enabled: false
+  # Required when enabled: the name before ".local" (lower-case).
+  hostName: ""
+  # The address to announce for that name, typically the SMB load balancer
+  # address. Empty: the node announces itself under hostName.
+  address: ""
+  # Required when enabled: the node's interface on the local network. On the
+  # host network, without it avahi and wsdd2 would answer on every interface.
+  interface: ""
+  # Bonjour display name. Empty means hostName.
+  displayName: ""
+  workgroup: WORKGROUP
+  # Icon in the macOS Finder.
+  model: Xserve
+  # Shares to advertise as Time Machine destinations.
+  timeMachineShares: []
+  resources:
+    requests:
+      cpu: 5m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# --- NetworkPolicy (optional) ---------------------------------------------------------------
+# Restricts who may reach the pod. Each list holds NetworkPolicy peers
+# (ipBlock, podSelector, namespaceSelector). An empty list allows that port
+# from anywhere (the console's own allowedNetworks still applies). Does not
+# apply to the discovery pod (host network). Your CNI must enforce policies.
+networkPolicy:
+  enabled: false
+  webFrom: []
+  #  - ipBlock:
+  #      cidr: 100.64.0.0/10
+  smbFrom: []
+  #  - ipBlock:
+  #      cidr: 192.168.1.0/24

@@ -1,0 +1,25 @@
+{{define "content"}}{{$c := .Data}}
+<section class="scene scene--narrow">
+  <form method="post" action="{{$c.Action}}" class="form">
+    {{template "hidden" .}}
+    <p class="eyebrow{{if $c.Danger}} eyebrow--danger{{end}}">{{.L.T $c.Eyebrow}}</p>
+    <h1 class="title title--small">{{.L.T $c.Title "name" $c.Name}}</h1>
+    <p class="lead">{{.L.T $c.Text}}</p>
+    {{if $c.Password}}
+    <div class="field">
+      <label class="field__label" for="confirm-password">{{.L.T "field.new_password"}}</label>
+      <div class="input-group">
+        <input class="input mono" type="password" id="confirm-password" name="password" autocomplete="new-password" minlength="{{.MinLength}}" maxlength="256">
+        {{template "generate-btn" (dict "L" .L "For" "confirm-password")}}
+        {{template "reveal-btn" (dict "L" .L "For" "confirm-password")}}
+      </div>
+      <p class="hint">{{.L.T "users.password_hint" "min" .MinLength}}</p>
+    </div>
+    {{end}}
+    <div class="actions actions--row">
+      <a class="btn btn--ghost" href="{{$c.Back}}">{{.L.T "dialog.cancel"}}</a>
+      <button type="submit" class="btn {{if $c.Danger}}btn--danger-solid{{else}}btn--primary{{end}}">{{.L.T $c.Submit}}</button>
+    </div>
+  </form>
+</section>
+{{end}}
