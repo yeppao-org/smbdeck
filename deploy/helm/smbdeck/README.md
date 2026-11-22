@@ -14,11 +14,25 @@ to a registry the cluster can pull from, and set `image.repository` and
 `image.tag`.
 
 ```bash
-helm install smbdeck ./deploy/helm/smbdeck \
+helm install smbdeck oci://ghcr.io/yeppao-org/charts/smbdeck --version 0.1.0 \
   --namespace smbdeck --create-namespace \
   --set 'roots[0].name=drive1' --set 'roots[0].hostPath=/mnt/drive1' \
   --set nodeSelector.kubernetes\.io/hostname=nas \
   --set smb.service.enabled=true
+```
+
+The chart is published to GHCR by the release workflow. From a clone of the
+repository, `./deploy/helm/smbdeck` in place of the `oci://` address and
+`--version` installs the same chart. Argo CD and Flux can read it from the
+registry, or from the repository (path `deploy/helm/smbdeck`, revision
+`v0.1.0`).
+
+The published chart is signed with cosign (keyless), like the image:
+
+```bash
+cosign verify ghcr.io/yeppao-org/charts/smbdeck:0.1.0 \
+  --certificate-identity https://github.com/yeppao-org/smbdeck/.github/workflows/release.yml@refs/tags/v0.1.0 \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
 Without a seed, the console asks for a first administrator, once, with a setup

@@ -100,13 +100,25 @@ make demo-down
 
 ## Kubernetes
 
-Le chart Helm est dans [`deploy/helm/smbdeck/`](deploy/helm/smbdeck/README.md) :
-un pod avec l’agent et la console, un PVC pour l’état, vos dossiers en
+Le chart Helm est publié sur GHCR comme artefact OCI
+(`oci://ghcr.io/yeppao-org/charts/smbdeck`, signé avec cosign comme
+l’image) ; sa source est dans
+[`deploy/helm/smbdeck/`](deploy/helm/smbdeck/README.md). Il déploie un pod avec l’agent et la console, un PVC pour l’état, vos dossiers en
 racines `hostPath`, un Service web, un Service `LoadBalancer` optionnel pour
 SMB, et un déploiement optionnel des annonces sur le réseau de l’hôte.
 Le chart tire `ghcr.io/yeppao-org/smbdeck` à l’étiquette `0.1.0`. Pour une
 image construite chez vous, poussez-la vers un registre que le cluster peut
 lire, et indiquez-la dans `image.repository` et `image.tag`.
+
+```bash
+helm install smbdeck oci://ghcr.io/yeppao-org/charts/smbdeck --version 0.1.0 \
+  --set 'roots[0].name=media' --set 'roots[0].hostPath=/srv/media' \
+  --set 'nodeSelector.kubernetes\.io/hostname=nas' \
+  --set smb.service.enabled=true
+```
+
+Depuis un clone du dépôt, `deploy/helm/smbdeck` à la place de l’adresse
+`oci://` et de `--version` installe le même chart.
 
 ## Fonctionnement
 

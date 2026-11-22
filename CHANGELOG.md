@@ -24,7 +24,9 @@ All notable changes are listed here. The format follows
   - `discovery`: mDNS/Bonjour (avahi) and WS-Discovery (wsdd2), unprivileged.
 - First administrator through a one-time setup page protected by a code from
   the logs, or a seed file with password files.
-- Docker Compose example and demo, Helm chart.
+- Docker Compose example and demo, Helm chart. The chart is published to
+  GHCR as an OCI artifact (`oci://ghcr.io/yeppao-org/charts/smbdeck`), signed
+  with cosign like the image.
 - Unit tests, HTTP tests of the console, and an integration test with a real
   Samba in Docker.
 

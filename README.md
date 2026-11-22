@@ -100,8 +100,11 @@ make demo-down
 
 ## Kubernetes
 
-A Helm chart lives in [`deploy/helm/smbdeck/`](deploy/helm/smbdeck/README.md):
-one pod with the agent and the console, a PVC for the state, your folders as
+A Helm chart is published to GHCR as an OCI artifact
+(`oci://ghcr.io/yeppao-org/charts/smbdeck`, signed with cosign like the
+image); its source lives in
+[`deploy/helm/smbdeck/`](deploy/helm/smbdeck/README.md). It deploys one pod
+with the agent and the console, a PVC for the state, your folders as
 `hostPath` roots, a web Service, an optional `LoadBalancer` Service for SMB,
 and an optional discovery Deployment on the host network. The chart pulls
 `ghcr.io/yeppao-org/smbdeck` at the tag `0.1.0`. To use an image you built,
@@ -109,12 +112,15 @@ push it to a registry your cluster can pull from, and set `image.repository`
 and `image.tag`.
 
 ```bash
-helm install smbdeck deploy/helm/smbdeck \
+helm install smbdeck oci://ghcr.io/yeppao-org/charts/smbdeck --version 0.1.0 \
   --set 'roots[0].name=media' --set 'roots[0].hostPath=/srv/media' \
   --set 'nodeSelector.kubernetes\.io/hostname=nas' \
   --set smb.service.enabled=true
 kubectl logs deploy/smbdeck -c web | grep setupCode
 ```
+
+From a clone of this repository, `deploy/helm/smbdeck` in place of the
+`oci://` address and `--version` installs the same chart.
 
 A `hostPath` root exists on one node only: `nodeSelector` pins the pod to the
 node that holds the folder (here, the node named `nas`).
